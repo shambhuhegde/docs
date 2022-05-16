@@ -808,24 +808,6 @@ In each Kubernetes cluster, the StatefulSet configuration sets all CockroachDB n
     ~~~
 
     The pod uses the `root` client certificate created earlier by the `setup.py` script. Note that this will work from any of the three Kubernetes clusters as long as you use the correct namespace and context combination.
-</section>
-
-<section class="filter-content" markdown="1" data-scope="eks">
-## Step 4. Use the built-in SQL client
-
-1. Use the `client-secure.yaml` file to launch a pod and keep it running indefinitely, specifying the context of the Kubernetes cluster and namespace of the CockroachDB pods to run it in:
-
-    {% include copy-clipboard.html %}
-    ~~~ shell
-    kubectl create -f https://raw.githubusercontent.com/cockroachdb/cockroach/master/cloud/kubernetes/multiregion/client-secure.yaml --context <cluster-context> --namespace <cluster-namespace>
-    ~~~
-
-    ~~~
-    pod "cockroachdb-client-secure" created
-    ~~~
-
-    The pod uses the `root` client certificate you [generated earlier](#generate-certificates). Note that this will work from any of the three Kubernetes clusters as long as you use the correct namespace and context combination.
-</section>
 
 1. Get a shell into the pod and start the CockroachDB [built-in SQL client](cockroach-sql.html), again specifying the namespace and context of the Kubernetes cluster where the pod is running:
 
@@ -903,6 +885,103 @@ In each Kubernetes cluster, the StatefulSet configuration sets all CockroachDB n
     ~~~ shell
     $ kubectl delete pod cockroachdb-client-secure --context <cluster-context>
     ~~~
+</section>
+
+<section class="filter-content" markdown="1" data-scope="eks">
+## Step 4. Use the built-in SQL client
+
+1. Use the `client-secure.yaml` file to launch a pod and keep it running indefinitely, specifying the context of the Kubernetes cluster and namespace of the CockroachDB pods to run it in:
+
+    {% include copy-clipboard.html %}
+    ~~~ shell
+    kubectl create -f https://raw.githubusercontent.com/cockroachdb/cockroach/master/cloud/kubernetes/multiregion/client-secure.yaml --context <cluster-context> --namespace <cluster-namespace>
+    ~~~
+
+    ~~~
+    pod "cockroachdb-client-secure" created
+    ~~~
+
+    The pod uses the `root` client certificate you [generated earlier](#generate-certificates). Note that this will work from any of the three Kubernetes clusters as long as you use the correct namespace and context combination.
+
+1. Get a shell into the pod and start the CockroachDB [built-in SQL client](cockroach-sql.html), again specifying the namespace and context of the Kubernetes cluster where the pod is running:
+
+    {% include copy-clipboard.html %}
+    ~~~ shell
+    $ kubectl exec -it cockroachdb-client-secure --context <cluster-context> --namespace <cluster-namespace> -- ./cockroach sql --certs-dir=/cockroach-certs --host=cockroachdb-public
+    ~~~
+
+    ~~~
+    # Welcome to the cockroach SQL interface.
+    # All statements must be terminated by a semicolon.
+    # To exit: CTRL + D.
+    #
+    # Server version: CockroachDB CCL v2.0.5 (x86_64-unknown-linux-gnu, built 2018/08/13 17:59:42, go1.10) (same version as client)
+    # Cluster ID: 99346e82-9817-4f62-b79b-fdd5d57f8bda
+    #
+    # Enter \? for a brief introduction.
+    #
+    warning: no current database set. Use SET database = <dbname> to change, CREATE DATABASE to make a new database.
+    root@cockroachdb-public:26257/>
+    ~~~
+
+1. Run some basic [CockroachDB SQL statements](learn-cockroachdb-sql.html):
+
+    {% include copy-clipboard.html %}
+    ~~~ sql
+    > CREATE DATABASE bank;
+    ~~~
+
+    {% include copy-clipboard.html %}
+    ~~~ sql
+    > CREATE TABLE bank.accounts (id INT PRIMARY KEY, balance DECIMAL);
+    ~~~
+
+    {% include copy-clipboard.html %}
+    ~~~ sql
+    > INSERT INTO bank.accounts VALUES (1, 1000.50);
+    ~~~
+
+    {% include copy-clipboard.html %}
+    ~~~ sql
+    > SELECT * FROM bank.accounts;
+    ~~~
+
+    ~~~
+    +----+---------+
+    | id | balance |
+    +----+---------+
+    |  1 |  1000.5 |
+    +----+---------+
+    (1 row)
+    ~~~
+
+1. [Create a user with a password](create-user.html#create-a-user-with-a-password):
+
+    {% include copy-clipboard.html %}
+    ~~~ sql
+    > CREATE USER roach WITH PASSWORD 'Q7gc8rEdS';
+    ~~~
+
+      You will need this username and password to access the DB Console in the next step.
+
+1. Exit the SQL shell and pod:
+
+    {% include copy-clipboard.html %}
+    ~~~ sql
+    > \q
+    ~~~
+
+    The pod will continue running indefinitely, so any time you need to reopen the built-in SQL client or run any other [`cockroach` client commands](cockroach-commands.html) (e.g., `cockroach node`), repeat step 2 using the appropriate command.
+
+    If you'd prefer to delete the pod and recreate it when needed, run:
+
+    {% include copy-clipboard.html %}
+    ~~~ shell
+    $ kubectl delete pod cockroachdb-client-secure --context <cluster-context>
+    ~~~
+</section>
+
+
 
 <section class="filter-content" markdown="1" data-scope="gke">
 ## Step 4. Access the DB Console
@@ -1010,11 +1089,6 @@ Each of your Kubernetes clusters contains 3 instances that can run CockroachDB p
 
 <section class="filter-content" markdown="1" data-scope="gke">
 1. [Resize your Kubernetes cluster.](https://cloud.google.com/kubernetes-engine/docs/how-to/resizing-a-cluster)
-</section>
-
-<section class="filter-content" markdown="1" data-scope="eks">
-1. [Resize your Kubernetes cluster.](https://eksctl.io/usage/managing-nodegroups/#scaling)
-</section>
 
 1. Use the `kubectl scale` command to add a pod to the StatefulSet in the Kubernetes cluster where you want to add a CockroachDB node:
 
@@ -1042,6 +1116,41 @@ Each of your Kubernetes clusters contains 3 instances that can run CockroachDB p
     cockroachdb-3               1/1       Running   0          44s
     cockroachdb-client-secure   1/1       Running   0          26m
     ~~~
+</section>
+
+<section class="filter-content" markdown="1" data-scope="eks">
+1. [Resize your Kubernetes cluster.](https://eksctl.io/usage/managing-nodegroups/#scaling)
+
+1. Use the `kubectl scale` command to add a pod to the StatefulSet in the Kubernetes cluster where you want to add a CockroachDB node:
+
+    {% include copy-clipboard.html %}
+    ~~~ shell
+    $ kubectl scale statefulset cockroachdb --replicas=4 --context <cluster-context> --namespace <cluster-namespace>
+    ~~~
+
+    ~~~
+    statefulset "cockroachdb" scaled
+    ~~~
+
+1. Verify that a fourth pod was added successfully:
+
+    {% include copy-clipboard.html %}
+    ~~~ shell
+    $ kubectl get pods --context <cluster-context> --namespace <cluster-namespace>
+    ~~~
+
+    ~~~
+    NAME                        READY     STATUS    RESTARTS   AGE
+    cockroachdb-0               1/1       Running   0          1h
+    cockroachdb-1               1/1       Running   0          1h
+    cockroachdb-2               1/1       Running   0          7m
+    cockroachdb-3               1/1       Running   0          44s
+    cockroachdb-client-secure   1/1       Running   0          26m
+    ~~~
+
+</section>
+
+
 
 ### Upgrade the cluster
 
