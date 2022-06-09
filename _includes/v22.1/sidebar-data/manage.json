@@ -93,7 +93,13 @@
     {
       "title": "Back Up and Restore Data",
       "items": [
-        {
+          {
+            "title": "Backup Architecture",
+            "urls": [
+              "/${VERSION}/backup-architecture.html"
+            ]
+          },
+          {
           "title": "Back Up and Restore CockroachDB Cloud Clusters",
           "items": [
             {
